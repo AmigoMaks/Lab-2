@@ -1,0 +1,15 @@
+#include <iostream>
+using namespace std;
+
+main() {
+    int a, b, c, d, x, y;
+    cout << "Input numbers a, b, c, d: ";
+    cin >> a >> b >> c >> d;
+    
+    x = (((a<<7) - a + (c<<5))>>12)-((d<<10)+(d<<7)+(d<<5)+(d<<4))+(b<<7)+(b<<1)+b;
+
+    y = ((127*a + 32*c)/4096) - 1200*d + 131*b;
+
+    cout << "x: "<< x << "\ny: " << y; 
+    return 0;
+}

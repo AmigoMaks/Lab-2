@@ -1,0 +1,114 @@
+#include <iostream>
+#include <vector>
+#include <bitset>
+#include <fstream>
+#include <cstdint>
+
+using namespace std;
+
+const int ROWS = 8;
+const int COLS = 8;
+const string FILENAME = "encrypted.bin";
+
+string padString(const string &str) {
+    string padded = str;
+    while (padded.length() < COLS) {
+        padded += ' ';
+    }
+    return padded;
+}
+
+int parityBit(int value, int bits) {
+    int parity = 0;
+    for (int i = 0; i < bits; i++) {
+        parity ^= (value >> i) & 1;
+    }
+    return parity;
+}
+
+uint16_t encodeChar(char ch, int row, int col) {
+    int ascii_code = static_cast<int>(ch);
+    
+    int row_bits = row & 0b111;  
+    int lower_ascii = ascii_code & 0b1111;
+    int upper_ascii = (ascii_code >> 4) & 0b1111; 
+    int col_bits = col & 0b111;  
+
+    int first_half = (row_bits) | (lower_ascii << 3);
+    int first_parity = parityBit(first_half, 7) << 7; 
+
+    int second_half = (upper_ascii) | (col_bits << 4);
+    int second_parity = parityBit(second_half, 7) << 15; 
+
+    return first_half | first_parity | (second_half << 8) | second_parity;
+}
+
+char decodeChar(uint16_t encoded, int &row, int &col) {
+    int first_half = encoded & 0xFF;
+    int second_half = (encoded >> 8) & 0xFF;
+
+    row = first_half & 0b111;
+    int lower_ascii = (first_half >> 3) & 0b1111;
+    int upper_ascii = second_half & 0b1111;
+    col = (second_half >> 4) & 0b111;
+
+    return static_cast<char>((upper_ascii << 4) | lower_ascii);
+}
+
+int main() {
+    vector<string> text(ROWS);
+
+    cout << "Input 8 rows (8 or less symbols):\n";
+    for (int i = 0; i < ROWS; i++) {
+        cout << "Row " << i + 1 << ": ";
+        getline(cin, text[i]);
+        text[i] = padString(text[i]);
+    }
+
+    vector<vector<uint16_t>> encodedText(ROWS, vector<uint16_t>(COLS));
+
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            encodedText[i][j] = encodeChar(text[i][j], i, j);
+        }
+    }
+
+    ofstream outFile(FILENAME, ios::binary);
+    if (!outFile) {
+        cerr << "Error" << endl;
+        return 1;
+    }
+    for (int i = 0; i < ROWS; i++) {
+        outFile.write(reinterpret_cast<char*>(encodedText[i].data()), COLS * sizeof(uint16_t));
+    }
+    outFile.close();
+
+    system(("notepad " + FILENAME).c_str());
+
+    ifstream inFile(FILENAME, ios::binary);
+    if (!inFile) {
+        cerr << "Error" << endl;
+        return 1;
+    }
+
+    vector<vector<uint16_t>> decodedText(ROWS, vector<uint16_t>(COLS));
+    for (int i = 0; i < ROWS; i++) {
+        inFile.read(reinterpret_cast<char*>(decodedText[i].data()), COLS * sizeof(uint16_t));
+    }
+    inFile.close();
+
+    vector<string> decryptedText(ROWS, string(COLS, ' '));
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            int row, col;
+            decryptedText[i][j] = decodeChar(decodedText[i][j], row, col);
+        }
+    }
+
+    cout << "\nDecoded text:\n";
+    for (const auto &line : decryptedText) {
+        cout << line << endl;
+    }
+
+    return 0;
+}
